@@ -174,3 +174,10 @@ svg.chart line { stroke: var(--line); }
 .modal-title .sub { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 10px; }
 .modal-box img { width: 100%; height: auto; display: block; border-radius: 6px; border: 1px solid var(--line); }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+/* lesson passage: one big cell over the whole grid, text scaled down by script to fit */
+.grid { --rows: 5; }
+.grid.egg-on .cell:not(.egg-main) { display: none; }
+.cell.egg-main { grid-column: 1 / -1; grid-row: span var(--rows); }
+.cell .tx.egg { position: absolute; left: 14px; top: 8px; font-size: 18px; line-height: 1.4; text-align: center; transform-origin: 0 0; }
+@media (max-width: 700px) { .grid { --rows: 10; } }

@@ -43,6 +43,16 @@ export function buildEntries(text, lang) {
   return out;
 }
 
+let egg = null;
+export async function loadEgg() {
+  if (egg) return egg;
+  const r = await fetch('resources/lesson.json');
+  if (!r.ok) throw new Error('egg ' + r.status);
+  const data = await r.json();
+  if (!data.versions || !data.versions.length) throw new Error('empty egg');
+  return (egg = data);
+}
+
 export async function loadWords(lang) {
   if (dict[lang]) return dict[lang];
   const r = await fetch(`resources/ktgtypewordtextdata_0_${lang}.exd.csv`);

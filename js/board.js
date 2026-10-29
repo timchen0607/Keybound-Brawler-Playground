@@ -20,10 +20,36 @@ export function setLine(el, text, end) {
   el.append(text.slice(end));
 }
 
+// The area size is fixed, so a long passage is scaled down until it fits inside it.
+// (transform: scale is used instead of a tiny font-size, which browsers may refuse to render.)
+function fitEgg(c, el) {
+  const innerW = c.clientWidth - 28, innerH = c.clientHeight - 12;
+  let s = 1;
+  for (; s > 0.2; s -= 0.02) {
+    el.style.width = innerW / s + 'px';
+    el.style.transform = `scale(${s})`;
+    if (el.offsetHeight * s <= innerH) break;
+  }
+  el.style.top = Math.max(6, (c.clientHeight - el.offsetHeight * s) / 2) + 'px';   // vertically centred
+}
+
 export function paintCell(w) {
   const c = cells[w.slot];
   c.className = 'cell';
   c.textContent = '';
+  if (w.egg) {
+    const t = w.targets[0];
+    c.classList.add('egg-main');
+    const el = h('div', { class: 'tx egg' });
+    w.lines = { [t.kind]: el };
+    w.end = { text: 0, kana: 0 };
+    setLine(el, t.src, 0);
+    c.append(el);
+    fitEgg(c, el);
+    w.bar = h('i', { class: 'bar' });
+    c.append(w.bar);
+    return;
+  }
   w.lines = { text: h('div', { class: 'tx' }) };
   w.end = { text: 0, kana: 0 };
   setLine(w.lines.text, w.text, 0);
@@ -40,6 +66,9 @@ export function setProgress(w, t, consumed) {
   const end = consumed > 0 ? t.tokens[consumed - 1].e : 0;
   if (w.end[t.kind] !== end && w.lines[t.kind]) { w.end[t.kind] = end; setLine(w.lines[t.kind], t.src, end); }
 }
+
+// Lesson passage: the whole grid becomes one big cell.
+export function setEggLayout(on) { grid.classList.toggle('egg-on', on); }
 
 export function emptyCell(i) { cells[i].className = 'cell'; cells[i].textContent = ''; }
 

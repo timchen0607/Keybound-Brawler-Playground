@@ -4,7 +4,7 @@ import { LS } from './util.js';
 export const MAX_WORDS = 10, MIN_BATCH = 3, MAX_BATCH = 5;
 export const TRICKLE_MS = 6000, IDLE_PAUSE_MS = 15000, WARN_MS = 8000, HISTORY_MAX = 30;
 
-const DEFAULTS = { lang: 'ja', mode: 'timed', duration: 180, lifetime: 30, caseSensitive: false, theme: 'auto', username: '' };
+const DEFAULTS = { lang: 'ja', mode: 'timed', duration: 180, lifetime: 30, caseSensitive: false, theme: 'auto', username: '', allowEgg: true };
 export const settings = Object.assign({}, DEFAULTS, LS.get('tp.settings', {}));
 export const saveSettings = () => LS.set('tp.settings', settings);
 

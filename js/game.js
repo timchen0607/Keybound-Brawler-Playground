@@ -1,17 +1,48 @@
 /* Game core: word spawning, Enter judging, sessions and the frame loop. */
 import * as M from './matcher.js';
-import { rand, dayKey } from './util.js';
+import { rand, dayKey, LS } from './util.js';
 import {
   MAX_WORDS, MIN_BATCH, MAX_BATCH, TRICKLE_MS, IDLE_PAUSE_MS, WARN_MS,
   settings, stats, saveStats, G, wstat,
 } from './state.js';
-import { loadWords } from './words.js';
+import { loadWords, loadEgg } from './words.js';
 import {
-  input, cells, paintCell, emptyCell, renderState, showOverlay, updateHud,
+  input, cells, paintCell, emptyCell, renderState, showOverlay, updateHud, setEggLayout,
 } from './board.js';
 import {
   normTyped, histPush, histHas, histStep, resetInput, flashBad, clearProgress, evaluate,
 } from './typing.js';
+
+/* ---------- easter egg: a passage that fills every cell, at most once per session ---------- */
+const EGG_SESSION_CHANCE = 0.1;       // about one session in ten gets the passage
+const EGG_AFTER = [3, 15];            // ...shown at a random correct answer within this range
+const EGG_COOLDOWN = 5;               // after it shows, the next 5 sessions never get it
+let eggData = null;
+
+function makeEggWord(line, lang) {   // one word that spans the whole grid
+  const kind = lang === 'en' ? 'text' : 'kana';   // zh / ja lines are matched literally (IME)
+  const target = kind === 'text'
+    ? { kind, src: line, tokens: M.textTokens(line, settings.caseSensitive), norm: settings.caseSensitive ? line : line.toLowerCase() }
+    : { kind, src: line, tokens: M.kanaTokens(line), norm: M.normKana(line) };
+  return {
+    uid: ++G.uid, key: 'egg:' + G.uid, egg: true, text: kind === 'text' ? line : '', kana: kind === 'kana' ? line : '',
+    targets: [target], age: 0, slot: 0, lines: {}, end: {}, span: true,
+  };
+}
+
+const eggReady = () => settings.allowEgg && eggData && G.sess && G.sess.eggAt > 0 && !G.sess.egg && G.sess.cleared >= G.sess.eggAt;
+
+function showEgg() {
+  const v = eggData.versions[rand(0, eggData.versions.length - 1)];
+  G.sess.egg = true;
+  LS.set('tp.eggCool', EGG_COOLDOWN);
+  G.words.slice().forEach((w) => removeWord(w, 'egg'));
+  const w = makeEggWord(v.text, v.lang);
+  G.slots.fill(w);
+  G.words.push(w);
+  setEggLayout(true);
+  paintCell(w);
+}
 
 /* ---------- words ---------- */
 function makeWord(e) {
@@ -32,7 +63,7 @@ function place(w) {
   G.slots[w.slot] = w;
   G.words.push(w);
   paintCell(w);
-  wstat(w).shown++;
+  if (!w.egg) wstat(w).shown++;
   return true;
 }
 
@@ -40,6 +71,7 @@ const collides = (a, b) => a.targets.some((x) => b.targets.some((y) =>
   x.kind === y.kind && (x.norm.startsWith(y.norm) || y.norm.startsWith(x.norm))));
 
 function spawn(n) {
+  if (G.words.some((w) => w.span)) return;   // the passage owns the whole grid
   let guard = 0;
   while (n > 0 && G.words.length < MAX_WORDS && guard++ < 300) {
     const w = makeWord(G.pool[rand(0, G.pool.length - 1)]);
@@ -53,17 +85,22 @@ function removeWord(w, how) {
   const i = G.words.indexOf(w);
   if (i < 0) return;
   G.words.splice(i, 1);
-  G.slots[w.slot] = null;
-  const slot = w.slot;
-  cells[slot].classList.add('leaving');
-  setTimeout(() => { if (!G.slots[slot]) emptyCell(slot); }, 260);
-  if (G.state === 'playing' && G.words.length <= 1) spawn(rand(MIN_BATCH, MAX_BATCH));
+  if (w.span) {
+    G.slots.fill(null);
+    setEggLayout(false);
+    cells.forEach((_, k) => emptyCell(k));
+  } else {
+    G.slots[w.slot] = null;
+    const slot = w.slot;
+    cells[slot].classList.add('leaving');
+    setTimeout(() => { if (!G.slots[slot]) emptyCell(slot); }, 260);
+  }
+  if (G.state === 'playing' && G.words.length <= 1 && how !== 'egg') spawn(rand(MIN_BATCH, MAX_BATCH));
   if (how === 'expire') evaluate(input.value);
 }
 
 function expireWord(w) {
-  wstat(w).exp++;
-  G.sess.expired++;
+  if (!w.egg) { wstat(w).exp++; G.sess.expired++; }
   removeWord(w, 'expire');
 }
 
@@ -77,12 +114,16 @@ export function submit() {
   const done = G.words.find((w) => w.targets.some((t) => M.match(t.tokens, normTyped(t.kind, val)).complete));
   if (done) {
     const dt = s.activeMs - (G.inputStart == null ? s.activeMs : G.inputStart);
-    const st = wstat(done);
-    st.cleared++; st.ms += dt;
-    s.cleared++; s.clearMs += dt;
+    if (!done.egg) {                       // the egg passage is not part of the statistics
+      const st = wstat(done);
+      st.cleared++; st.ms += dt;
+      s.cleared++; s.clearMs += dt;
+    }
+    const egg = !done.egg && eggReady();
     resetInput();
-    removeWord(done, 'clear');
+    removeWord(done, egg ? 'egg' : 'clear');
     clearProgress();
+    if (egg) showEgg();
     return;
   }
   // Attribute the miss to the word sharing the longest leading part with the input.
@@ -94,7 +135,7 @@ export function submit() {
     while (n < typed.length && n < t.norm.length && typed[n] === t.norm[n]) n++;
     if (n > bestLen) { bestLen = n; best = w; }
   }));
-  if (best) { wstat(best).miss++; s.err++; }
+  if (best && !best.egg) { wstat(best).miss++; s.err++; }
   resetInput();
   flashBad();
   clearProgress();
@@ -149,6 +190,7 @@ export async function startSession() {
   G.starting = true;
   try {
     G.pool = await loadWords(settings.lang);
+    eggData = await loadEgg().catch(() => null);   // optional: the game works without it
   } catch (e) {
     G.starting = false;
     showOverlay('error');
@@ -156,10 +198,17 @@ export async function startSession() {
   }
   G.starting = false;
   G.words = []; G.slots.fill(null);
+  setEggLayout(false);
   cells.forEach((_, i) => emptyCell(i));
   resetInput();
+  // Cooldown is counted in started sessions and survives page reloads.
+  let eggAt = 0;
+  const cool = LS.get('tp.eggCool', 0);
+  if (cool > 0) LS.set('tp.eggCool', cool - 1);
+  else if (Math.random() < EGG_SESSION_CHANCE) eggAt = rand(EGG_AFTER[0], EGG_AFTER[1]);
   G.sess = { ts: Date.now(), lang: settings.lang, mode: settings.mode, activeMs: 0, cleared: 0, clearMs: 0,
-             err: 0, expired: 0, touched: false };
+             err: 0, expired: 0, touched: false, egg: false,
+             eggAt };
   G.trickle = 0; G.lastInput = performance.now();
   G.state = 'playing';
   spawn(rand(MIN_BATCH, MAX_BATCH));
