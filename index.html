@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>魔光鍵影 Playground</title>
+<link rel="icon" href="assets/icon.ico">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">魔光鍵影 Playground</div>
+  <nav id="nav">
+    <button data-view="play" class="on">訓練場</button>
+    <button data-view="dash">戰績</button>
+    <button data-view="settings">設定</button>
+  </nav>
+  <span id="user-name" class="user-name"></span>
+  <button id="theme-btn" class="theme-btn" title="切換淺色／深色">◐ 自動</button>
+</header>
+
+<main>
+  <!-- 練習 -->
+  <section id="view-play">
+    <div class="toolbar">
+      <label>語言
+        <select data-set="lang">
+          <option value="ja">日文</option>
+          <option value="en">英文</option>
+        </select>
+      </label>
+      <label>模式
+        <select data-set="mode">
+          <option value="timed">計時</option>
+          <option value="free">自由</option>
+        </select>
+      </label>
+      <label id="duration-wrap">時間
+        <select data-set="duration" data-num>
+          <option value="60">1 分鐘</option><option value="180">3 分鐘</option><option value="300">5 分鐘</option>
+        </select>
+      </label>
+      <span class="spacer"></span>
+      <button id="btn-stop" class="ghost" hidden>結束</button>
+      <button id="btn-main" class="primary">開始</button>
+    </div>
+
+    <div class="hud" id="hud">
+      <div><span class="k">時間</span><b id="h-time">03:00</b></div>
+      <div><span class="k">已消除</span><b id="h-cleared">0</b></div>
+      <div><span class="k">每詞平均用時</span><b id="h-avg">—</b></div>
+      <div><span class="k">正確率</span><b id="h-acc">—</b></div>
+      <div><span class="k">逾時</span><b id="h-exp">0</b></div>
+    </div>
+
+    <div class="stage">
+      <div class="grid" id="grid"></div>
+      <div class="overlay" id="overlay"></div>
+    </div>
+
+    <div class="inputbar">
+      <input id="typed" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" autofocus placeholder="輸入後按 Enter 送出 · ↑ 上一次送出 · Esc 清空">
+    </div>
+    <p class="hint" id="hint"></p>
+  </section>
+
+  <!-- Dashboard -->
+  <section id="view-dash" hidden></section>
+
+  <!-- 設定 -->
+  <section id="view-settings" hidden>
+    <h2>個人</h2>
+    <div class="form">
+      <label>使用者名稱 <input type="text" id="username" data-set="username" maxlength="20" autocomplete="off" spellcheck="false"></label>
+    </div>
+    <p class="note">留空會使用預設名稱（光之戰士#加上四碼隨機代碼，代碼會固定保存）。</p>
+
+    <h2>遊戲</h2>
+    <div class="form">
+      <label>單詞停留時間
+        <select data-set="lifetime" data-num>
+          <option value="15">15 秒</option><option value="30">30 秒</option><option value="45">45 秒</option><option value="60">60 秒</option>
+        </select>
+      </label>
+    </div>
+    <p class="note">語言、模式與計時長度請在「訓練場」頁面上方調整，設定會自動保存。</p>
+
+    <h2>輸入規則</h2>
+    <div class="form">
+      <label class="chk"><input type="checkbox" data-set="caseSensitive"> 區分大小寫</label>
+    </div>
+    <p class="note">日文模式：可輸入下方英文，或用日文輸入法輸入上方假名本身（不接受羅馬拼音）。<br>英文：<code>! ' ? -</code> 這類符號可省略；<code>.</code>、<code>,</code> 與空格必須輸入。</p>
+
+    <h2>外觀</h2>
+    <div class="form">
+      <label>主題
+        <select data-set="theme">
+          <option value="auto">跟隨系統</option><option value="light">淺色</option><option value="dark">深色</option>
+        </select>
+      </label>
+    </div>
+  </section>
+</main>
+
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
